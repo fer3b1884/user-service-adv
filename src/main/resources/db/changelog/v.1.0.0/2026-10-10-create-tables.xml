@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="2026-10-10-create-table-users" author="shved">
+        <createTable tableName="users">
+            <column name="id" type="bigserial">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="surname" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="birth_date" type="date"/>
+            <column name="email" type="varchar(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="users" indexName="idx_users_name_surname">
+            <column name="name"/>
+            <column name="surname"/>
+        </createIndex>
+
+        <createIndex tableName="users" indexName="idx_users_active">
+            <column name="active"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2026-10-10-create-table-payment-cards" author="shved">
+        <createTable tableName="payment_cards">
+            <column name="id" type="bigserial">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="number" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="holder" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expiration_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="payment_cards"
+                baseColumnNames="user_id"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                constraintName="payment_cards_user_id_users_id"/>
+
+        <createIndex tableName="payment_cards" indexName="idx_payment_cards_user_id">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createIndex tableName="payment_cards" indexName="idx_payment_cards_active">
+            <column name="active"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
