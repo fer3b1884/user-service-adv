@@ -5,6 +5,8 @@ import by.shved.userservice.dto.paymentcard.PaymentCardResponse;
 import by.shved.userservice.dto.paymentcard.PaymentCardUpdateRequest;
 import by.shved.userservice.entity.PaymentCardEntity;
 import by.shved.userservice.entity.UserEntity;
+import by.shved.userservice.exception.BusinessException;
+import by.shved.userservice.exception.ResourceNotFoundException;
 import by.shved.userservice.mapper.PaymentCardMapper;
 import by.shved.userservice.repository.PaymentCardRepository;
 import by.shved.userservice.repository.UserRepository;
@@ -36,7 +38,10 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     public PaymentCardResponse create(PaymentCardRequest request) {
         UserEntity user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + request.userId()));
-        //todo check number of user cards
+        int cardCount = paymentCardRepository.countCardsByUserId(user.getId());
+        if (cardCount >= 5) {
+            throw new BusinessException("User cannot have more than 5 payment cards");
+        }
         PaymentCardEntity card = paymentCardMapper.toEntity(request);
         card.setUser(user);
         PaymentCardEntity savedCard = paymentCardRepository.save(card);
@@ -46,7 +51,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @Override
     public PaymentCardResponse getById(Long id) {
         PaymentCardEntity card = paymentCardRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("PaymentCard not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("PaymentCard not found with id: " + id));
         return paymentCardMapper.toResponse(card);
     }
 
@@ -60,10 +65,10 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     public List<PaymentCardResponse> getAllByUserId(Long userId) {
-        List<PaymentCardEntity> foundCards = paymentCardRepository.findAllByUser_Id(userId);
-        if (foundCards.isEmpty()) {
-            throw new EntityNotFoundException("PaymentCards not found with userId: " + userId);
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
         }
+        List<PaymentCardEntity> foundCards = paymentCardRepository.findAllByUser_Id(userId);
         return foundCards.stream()
                 .map(paymentCardMapper::toResponse)
                 .toList();
@@ -73,7 +78,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @Transactional
     public PaymentCardResponse update(Long id, PaymentCardUpdateRequest request) {
         PaymentCardEntity card = paymentCardRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Payment card not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         card.setNumber(request.number());
         card.setHolder(request.holder());
         card.setExpirationDate(request.expirationDate());
@@ -85,7 +90,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @Transactional
     public PaymentCardResponse setActive(Long id, boolean active) {
         PaymentCardEntity card = paymentCardRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Payment card not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         card.setActive(active);
         PaymentCardEntity updatedCard = paymentCardRepository.save(card);
         return paymentCardMapper.toResponse(updatedCard);
@@ -95,7 +100,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @Transactional
     public void deleteById(Long id) {
         PaymentCardEntity card = paymentCardRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Payment card not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         paymentCardRepository.delete(card);
     }
 }

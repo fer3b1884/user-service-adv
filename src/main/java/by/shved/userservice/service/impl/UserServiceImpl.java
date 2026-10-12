@@ -3,6 +3,7 @@ package by.shved.userservice.service.impl;
 import by.shved.userservice.dto.user.UserRequest;
 import by.shved.userservice.dto.user.UserResponse;
 import by.shved.userservice.entity.UserEntity;
+import by.shved.userservice.exception.ResourceNotFoundException;
 import by.shved.userservice.mapper.UserMapper;
 import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.UserSpecification;
@@ -35,7 +36,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse getById(Long id) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return userMapper.toResponse(user);
     }
 
@@ -51,7 +52,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse update(Long id, UserRequest request) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setName(request.name());
         user.setSurname(request.surname());
         user.setBirthDate(request.birthDate());
@@ -64,7 +65,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse setActive(Long id, boolean active) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setActive(active);
         UserEntity updatedUser = userRepository.save(user);
         return userMapper.toResponse(updatedUser);
@@ -74,7 +75,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deleteById(Long id) {
         UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         userRepository.delete(user);
     }
 }
