@@ -3,6 +3,7 @@ package by.shved.userservice.service.impl;
 import by.shved.userservice.dto.user.UserRequest;
 import by.shved.userservice.dto.user.UserResponse;
 import by.shved.userservice.entity.UserEntity;
+import by.shved.userservice.exception.DuplicateResourceException;
 import by.shved.userservice.exception.ResourceNotFoundException;
 import by.shved.userservice.mapper.UserMapper;
 import by.shved.userservice.repository.UserRepository;
@@ -29,6 +30,9 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse create(UserRequest request) {
         UserEntity user = userMapper.toEntity(request);
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new DuplicateResourceException("User with this email already exists");
+        }
         UserEntity savedUser = userRepository.save(user);
         return userMapper.toResponse(savedUser);
     }
