@@ -2,6 +2,7 @@ package by.shved.userservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import tools.jackson.databind.annotation.JsonPOJOBuilder;
 
 @SpringBootApplication
 public class UserServiceAdvApplication {
