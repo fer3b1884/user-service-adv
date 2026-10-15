@@ -9,8 +9,10 @@ import by.shved.userservice.mapper.UserMapper;
 import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.UserSpecification;
 import by.shved.userservice.service.UserService;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -37,6 +39,7 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(savedUser);
     }
 
+    @Cacheable(cacheNames = "users", key = "#id")
     @Override
     public UserResponse getById(Long id) {
         UserEntity user = userRepository.findById(id)
@@ -52,6 +55,7 @@ public class UserServiceImpl implements UserService {
         return userRepository.findAll(specification, pageable).map(userMapper::toResponse);
     }
 
+    @CacheEvict(cacheNames = "users", key = "#id")
     @Override
     @Transactional
     public UserResponse update(Long id, UserRequest request) {
@@ -65,6 +69,7 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(updatedUser);
     }
 
+    @CacheEvict(cacheNames = "users", key = "#id")
     @Override
     @Transactional
     public UserResponse setActive(Long id, boolean active) {
@@ -75,6 +80,10 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(updatedUser);
     }
 
+    @Caching (evict = {
+            @CacheEvict(cacheNames = "users", key = "#id"),
+            @CacheEvict(cacheNames = "payment_cards", allEntries = true)
+    })
     @Override
     @Transactional
     public void deleteById(Long id) {

@@ -14,6 +14,8 @@ import by.shved.userservice.repository.specification.PaymentCardSpecification;
 import by.shved.userservice.service.PaymentCardService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -48,6 +50,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         return paymentCardMapper.toResponse(savedCard);
     }
 
+    @Cacheable(cacheNames = "payment_cards", key = "#id")
     @Override
     public PaymentCardResponse getById(Long id) {
         PaymentCardEntity card = paymentCardRepository.findById(id)
@@ -74,6 +77,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
                 .toList();
     }
 
+    @CacheEvict(cacheNames = "payment_cards", key = "#id")
     @Override
     @Transactional
     public PaymentCardResponse update(Long id, PaymentCardUpdateRequest request) {
@@ -86,6 +90,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         return paymentCardMapper.toResponse(updatedCard);
     }
 
+    @CacheEvict(cacheNames = "payment_cards", key = "#id")
     @Override
     @Transactional
     public PaymentCardResponse setActive(Long id, boolean active) {
@@ -96,6 +101,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         return paymentCardMapper.toResponse(updatedCard);
     }
 
+    @CacheEvict(cacheNames = "payment_cards", key = "#id")
     @Override
     @Transactional
     public void deleteById(Long id) {
