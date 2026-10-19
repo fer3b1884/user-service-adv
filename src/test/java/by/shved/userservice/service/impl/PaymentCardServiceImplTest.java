@@ -10,7 +10,6 @@ import by.shved.userservice.exception.ResourceNotFoundException;
 import by.shved.userservice.mapper.PaymentCardMapper;
 import by.shved.userservice.repository.PaymentCardRepository;
 import by.shved.userservice.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,7 +107,7 @@ class PaymentCardServiceImplTest {
     void create_whenUserDoesNotExist_throwsException() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> paymentCardService.create(request));
+        assertThrows(ResourceNotFoundException.class, () -> paymentCardService.create(request));
 
         verify(paymentCardRepository, never()).save(any(PaymentCardEntity.class));
     }
