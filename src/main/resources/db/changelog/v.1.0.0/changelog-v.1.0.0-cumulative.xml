@@ -8,6 +8,7 @@
         <tagDatabase tag="v.1.0.0"/>
     </changeSet>
 
+    <include file="2026-10-10-create-tables.xml" relativeToChangelogFile="true"/>
     <include file="2026-10-10-add-auditing-logic.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

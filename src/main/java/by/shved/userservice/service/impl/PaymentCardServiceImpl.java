@@ -12,7 +12,6 @@ import by.shved.userservice.repository.PaymentCardRepository;
 import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.PaymentCardSpecification;
 import by.shved.userservice.service.PaymentCardService;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -39,7 +38,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @Transactional
     public PaymentCardResponse create(PaymentCardRequest request) {
         UserEntity user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + request.userId()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.userId()));
         int cardCount = paymentCardRepository.countCardsByUserId(user.getId());
         if (cardCount >= 5) {
             throw new BusinessException("User cannot have more than 5 payment cards");
