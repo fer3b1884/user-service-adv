@@ -2,9 +2,9 @@ name: User Service CI
 
 on:
   push:
-    branches: [ main, master ]
+#    branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+#    branches: [ main, master ]
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
           ./mvnw -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
             -Dsonar.organization="$SONAR_ORGANIZATION" \
-            -Dsonar.host.url="$SONAR_HOST_URL"
+            -Dsonar.host.url="$SONAR_HOST_URL" \
             -Dsonar.qualitygate.wait=true
 
   artefact-creation:
