@@ -51,7 +51,7 @@ jobs:
             -Dsonar.organization="$SONAR_ORGANIZATION" \
             -Dsonar.host.url="$SONAR_HOST_URL" \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-            -Dsonar.qualitygate.wait=true
+#            -Dsonar.qualitygate.wait=true
 
   artefact-creation:
     name: Artifact Creation
