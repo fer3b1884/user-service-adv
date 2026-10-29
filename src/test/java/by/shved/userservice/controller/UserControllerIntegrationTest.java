@@ -107,6 +107,26 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void create_whenEmailAlreadyExists_returnsConflict() throws Exception {
+        String email = "duplicate-" + UUID.randomUUID() + "@example.com";
+        createUser("Ivan", "Ivanov", email);
+        String request = """
+            {
+                "name": "Petr",
+                "surname": "Petrov",
+                "birthDate": "1999-09-29",
+                "email": "%s"
+            }
+            """.formatted(email);
+
+        mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isConflict());
+    }
+
     @ParameterizedTest
     @CsvSource({
             "ROLE_ADMIN, 201",
@@ -271,6 +291,13 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void getAll_whenAuthorizationSchemeIsInvalid_returnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/users")
+                        .header("Authorization", "Basic abc123"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void update_whenUserExists_updatesUser() throws Exception {
         long id = createUser();
         String email = "updated" + UUID.randomUUID() + "@example.com";
@@ -400,6 +427,26 @@ class UserControllerIntegrationTest {
 
     private long createUser(String name, String surname) throws Exception {
         String email = "user" + UUID.randomUUID() + "@example.com";
+        String request = """
+            {
+                "name": "%s",
+                "surname": "%s",
+                "birthDate": "1999-09-29",
+                "email": "%s"
+            }
+            """.formatted(name, surname, email);
+        String response = mockMvc.perform(post("/api/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return objectMapper.readTree(response).get("id").asLong();
+    }
+
+    private long createUser(String name, String surname, String email) throws Exception {
         String request = """
             {
                 "name": "%s",
