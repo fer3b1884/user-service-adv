@@ -20,6 +20,6 @@ USER spring-boot
 
 WORKDIR /app
 
-COPY --from=build /app/target/user-service-0.0.1-SNAPSHOT.jar /app/application.jar
+COPY --from=build /app/target/user-service-adv-0.0.1-SNAPSHOT.jar /app/application.jar
 
 ENTRYPOINT ["java", "-jar", "./application.jar"]
