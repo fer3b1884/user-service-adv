@@ -70,7 +70,7 @@ class PaymentCardControllerIntegrationTest {
                 }
                 """.formatted(userId);
 
-        mockMvc.perform(post("/api/payment-cards")
+        mockMvc.perform(post("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardRequest))
@@ -94,7 +94,7 @@ class PaymentCardControllerIntegrationTest {
                 }
                 """.formatted(userId);
 
-        mockMvc.perform(post("/api/payment-cards")
+        mockMvc.perform(post("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -112,7 +112,7 @@ class PaymentCardControllerIntegrationTest {
                 }
                 """.formatted(Long.MAX_VALUE);
 
-        mockMvc.perform(post("/api/payment-cards")
+        mockMvc.perform(post("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardRequest))
@@ -134,7 +134,7 @@ class PaymentCardControllerIntegrationTest {
                 }
                 """.formatted(userId);
 
-        mockMvc.perform(post("/api/payment-cards")
+        mockMvc.perform(post("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardRequest))
@@ -144,7 +144,7 @@ class PaymentCardControllerIntegrationTest {
     @ParameterizedTest
     @CsvSource({
             "ROLE_ADMIN, 201",
-            "ROLE_USER, 403"
+            "ROLE_USER, 201"
     })
     void create_checksAccessByRole(String role, int expectedStatus) throws Exception {
         long userId = createUser();
@@ -159,7 +159,7 @@ class PaymentCardControllerIntegrationTest {
             }
             """.formatted(userId);
 
-        mockMvc.perform(post("/api/payment-cards")
+        mockMvc.perform(post("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -167,11 +167,32 @@ class PaymentCardControllerIntegrationTest {
     }
 
     @Test
+    void create_whenUserCreatesCardForAnotherUser_returnsForbidden() throws Exception {
+        long ownerId = createUser();
+        long anotherUserId = createUser();
+        String token = createAccessToken(ownerId, "ROLE_USER");
+        String request = """
+            {
+                "userId": %d,
+                "number": "4111111111111111",
+                "holder": "IVAN IVANOV",
+                "expirationDate": "2030-12-31"
+            }
+            """.formatted(anotherUserId);
+
+        mockMvc.perform(post("/api/v1/payment-cards")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void getById_whenCardExists_returnsCard() throws Exception {
         long userId = createUser();
         long cardId = createCard(userId);
 
-        mockMvc.perform(get("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(get("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(cardId))
@@ -180,7 +201,7 @@ class PaymentCardControllerIntegrationTest {
 
     @Test
     void getById_whenCardDoesNotExist_returnsNotFound() throws Exception {
-        mockMvc.perform(get("/api/payment-cards/{id}", Long.MAX_VALUE)
+        mockMvc.perform(get("/api/v1/payment-cards/{id}", Long.MAX_VALUE)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNotFound());
     }
@@ -198,7 +219,7 @@ class PaymentCardControllerIntegrationTest {
         long tokenUserId = ownCard ? ownerId : anotherUserId;
         String token = createAccessToken(tokenUserId, role);
 
-        mockMvc.perform(get("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(get("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().is(expectedStatus));
     }
@@ -208,7 +229,7 @@ class PaymentCardControllerIntegrationTest {
         long userId = createUser();
         long cardId = createCard(userId);
 
-        mockMvc.perform(get("/api/payment-cards/{id}", cardId))
+        mockMvc.perform(get("/api/v1/payment-cards/{id}", cardId))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -217,7 +238,7 @@ class PaymentCardControllerIntegrationTest {
         long userId = createUser();
         long cardId = createCard(userId);
 
-        mockMvc.perform(get("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(get("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer invalid token"))
                 .andExpect(status().isUnauthorized());
     }
@@ -227,7 +248,7 @@ class PaymentCardControllerIntegrationTest {
         long userId = createUser();
         createCard(userId);
 
-        mockMvc.perform(get("/api/payment-cards/user/{userId}", userId)
+        mockMvc.perform(get("/api/v1/payment-cards/user/{userId}", userId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
@@ -247,7 +268,7 @@ class PaymentCardControllerIntegrationTest {
         long tokenUserId = ownProfile ? ownerId : anotherUserId;
         String token = createAccessToken(tokenUserId, role);
 
-        mockMvc.perform(get("/api/payment-cards/user/{userId}", ownerId)
+        mockMvc.perform(get("/api/v1/payment-cards/user/{userId}", ownerId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().is(expectedStatus));
     }
@@ -259,7 +280,7 @@ class PaymentCardControllerIntegrationTest {
         createCard(ivanId);
         createCard(petrId);
 
-        mockMvc.perform(get("/api/payment-cards")
+        mockMvc.perform(get("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .param("userName", "Mikhail")
                         .param("page", "0")
@@ -276,7 +297,7 @@ class PaymentCardControllerIntegrationTest {
         createCard(ivanId);
         createCard(petrId);
 
-        mockMvc.perform(get("/api/payment-cards")
+        mockMvc.perform(get("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .param("userSurname", "Zhuravlev")
                         .param("page", "0")
@@ -296,7 +317,7 @@ class PaymentCardControllerIntegrationTest {
         createCard(sameNameUserId);
         createCard(sameSurnameUserId);
 
-        mockMvc.perform(get("/api/payment-cards")
+        mockMvc.perform(get("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .param("userName", "Igor")
                         .param("userSurname", "Vernik")
@@ -312,7 +333,7 @@ class PaymentCardControllerIntegrationTest {
         long userId = createUser("Yaroslav", "Melnikov");
         createCard(userId);
 
-        mockMvc.perform(get("/api/payment-cards")
+        mockMvc.perform(get("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .param("userName", "Qwerty")
                         .param("page", "0")
@@ -330,7 +351,7 @@ class PaymentCardControllerIntegrationTest {
     void getAll_checksAccessByRole(String role, int expectedStatus) throws Exception {
         String token = createAccessToken(1L, role);
 
-        mockMvc.perform(get("/api/payment-cards")
+        mockMvc.perform(get("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + token)
                         .param("page", "0")
                         .param("size", "10"))
@@ -349,7 +370,7 @@ class PaymentCardControllerIntegrationTest {
                 }
                 """;
 
-        mockMvc.perform(put("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(put("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -371,7 +392,7 @@ class PaymentCardControllerIntegrationTest {
             }
             """;
 
-        mockMvc.perform(put("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(put("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -389,7 +410,7 @@ class PaymentCardControllerIntegrationTest {
             }
             """;
 
-        mockMvc.perform(put("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(put("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -416,7 +437,7 @@ class PaymentCardControllerIntegrationTest {
             }
             """;
 
-        mockMvc.perform(put("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(put("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -428,7 +449,7 @@ class PaymentCardControllerIntegrationTest {
         long userId = createUser();
         long cardId = createCard(userId);
 
-        mockMvc.perform(patch("/api/payment-cards/{id}/active", cardId)
+        mockMvc.perform(patch("/api/v1/payment-cards/{id}/active", cardId)
                         .header("Authorization", "Bearer " + adminToken)
                         .param("active", "false"))
                 .andExpect(status().isOk())
@@ -445,7 +466,7 @@ class PaymentCardControllerIntegrationTest {
         long cardId = createCard(userId);
         String token = createAccessToken(userId, role);
 
-        mockMvc.perform(patch("/api/payment-cards/{id}/active", cardId)
+        mockMvc.perform(patch("/api/v1/payment-cards/{id}/active", cardId)
                         .header("Authorization", "Bearer " + token)
                         .param("active", "false"))
                 .andExpect(status().is(expectedStatus));
@@ -456,7 +477,7 @@ class PaymentCardControllerIntegrationTest {
         long userId = createUser();
         long cardId = createCard(userId);
 
-        mockMvc.perform(delete("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(delete("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
         assertFalse(paymentCardRepository.existsById(cardId));
@@ -465,14 +486,14 @@ class PaymentCardControllerIntegrationTest {
     @ParameterizedTest
     @CsvSource({
             "ROLE_ADMIN, 204",
-            "ROLE_USER, 403"
+            "ROLE_USER, 204"
     })
     void deleteById_checksAccessByRole(String role, int expectedStatus) throws Exception {
         long userId = createUser();
         long cardId = createCard(userId);
         String token = createAccessToken(userId, role);
 
-        mockMvc.perform(delete("/api/payment-cards/{id}", cardId)
+        mockMvc.perform(delete("/api/v1/payment-cards/{id}", cardId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().is(expectedStatus));
     }
@@ -487,7 +508,7 @@ class PaymentCardControllerIntegrationTest {
                     "email": "%s"
                 }
                 """.formatted(email);
-        String response = mockMvc.perform(post("/api/users")
+        String response = mockMvc.perform(post("/api/v1/users")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -508,7 +529,7 @@ class PaymentCardControllerIntegrationTest {
                 "email": "%s"
             }
             """.formatted(name, surname, email);
-        String response = mockMvc.perform(post("/api/users")
+        String response = mockMvc.perform(post("/api/v1/users")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
@@ -528,7 +549,7 @@ class PaymentCardControllerIntegrationTest {
                     "expirationDate": "2030-12-31"
                 }
                 """.formatted(userId);
-        String response = mockMvc.perform(post("/api/payment-cards")
+        String response = mockMvc.perform(post("/api/v1/payment-cards")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cardRequest))

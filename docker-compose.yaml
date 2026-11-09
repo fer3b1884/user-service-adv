@@ -3,7 +3,7 @@ services:
     build: .
     container_name: user-service-app
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DOCKER_DB_URL: ${DOCKER_DB_URL}
@@ -12,6 +12,7 @@ services:
       DOCKER_REDIS_HOST: ${DOCKER_REDIS_HOST}
       DOCKER_REDIS_PORT: ${DOCKER_REDIS_PORT}
       DOCKER_JWT_SECRET: ${DOCKER_JWT_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

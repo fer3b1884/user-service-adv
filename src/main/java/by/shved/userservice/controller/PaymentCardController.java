@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/payment-cards")
+@RequestMapping("/api/v1/payment-cards")
 @RequiredArgsConstructor
 public class PaymentCardController {
     private final PaymentCardService paymentCardService;
@@ -44,7 +44,7 @@ public class PaymentCardController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or #request.userId() == authentication.principal")  //todo add user id
     public ResponseEntity<PaymentCardResponse> create(@Valid @RequestBody PaymentCardRequest request) {
         PaymentCardResponse response = paymentCardService.create(request);
         return ResponseEntity
@@ -67,7 +67,7 @@ public class PaymentCardController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or @paymentCardServiceImpl.isOwner(#id, authentication.principal)")
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {
         paymentCardService.deleteById(id);
         return ResponseEntity.noContent().build();

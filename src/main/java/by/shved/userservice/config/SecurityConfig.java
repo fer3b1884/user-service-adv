@@ -1,5 +1,6 @@
 package by.shved.userservice.config;
 
+import by.shved.userservice.security.InternalAuthenticationFilter;
 import by.shved.userservice.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final InternalAuthenticationFilter internalAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -40,7 +42,8 @@ public class SecurityConfig {
                             response.sendError(HttpStatus.FORBIDDEN.value());
                         })
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(internalAuthenticationFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 }
