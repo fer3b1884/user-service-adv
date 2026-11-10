@@ -16,4 +16,5 @@ public interface PaymentCardService {
     PaymentCardResponse update(Long id, PaymentCardUpdateRequest request);
     PaymentCardResponse setActive(Long id, boolean active);
     void deleteById(Long id);
+    boolean isOwner(Long cardId, Long userId);
 }

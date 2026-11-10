@@ -10,6 +10,8 @@ import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.UserSpecification;
 import by.shved.userservice.service.UserService;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -18,15 +20,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
-        this.userRepository = userRepository;
-        this.userMapper = userMapper;
-    }
 
     @Override
     @Transactional
@@ -36,6 +35,7 @@ public class UserServiceImpl implements UserService {
             throw new DuplicateResourceException("User with this email already exists");
         }
         UserEntity savedUser = userRepository.save(user);
+        log.info("User created: userId={}", savedUser.getId());
         return userMapper.toResponse(savedUser);
     }
 
@@ -44,6 +44,7 @@ public class UserServiceImpl implements UserService {
     public UserResponse getById(Long id) {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        log.debug("Retrieving user: userId={}", id);
         return userMapper.toResponse(user);
     }
 
@@ -66,6 +67,7 @@ public class UserServiceImpl implements UserService {
         user.setBirthDate(request.birthDate());
         user.setEmail(request.email());
         UserEntity updatedUser = userRepository.save(user);
+        log.info("User updated: userId={}", updatedUser.getId());
         return userMapper.toResponse(updatedUser);
     }
 
@@ -77,6 +79,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setActive(active);
         UserEntity updatedUser = userRepository.save(user);
+        log.info("User active status changed: userId={}, active={}", updatedUser.getId(), active);
         return userMapper.toResponse(updatedUser);
     }
 
@@ -89,6 +92,7 @@ public class UserServiceImpl implements UserService {
     public void deleteById(Long id) {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        log.info("User deleted: userId={}", id);
         userRepository.delete(user);
     }
 }

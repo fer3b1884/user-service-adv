@@ -13,6 +13,8 @@ import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.PaymentCardSpecification;
 import by.shved.userservice.service.PaymentCardService;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -22,17 +24,13 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class PaymentCardServiceImpl implements PaymentCardService {
     private final PaymentCardRepository paymentCardRepository;
     private final UserRepository userRepository;
     private final PaymentCardMapper paymentCardMapper;
-
-    public PaymentCardServiceImpl(PaymentCardRepository paymentCardRepository, UserRepository userRepository, PaymentCardMapper paymentCardMapper) {
-        this.paymentCardRepository = paymentCardRepository;
-        this.userRepository = userRepository;
-        this.paymentCardMapper = paymentCardMapper;
-    }
 
     @Override
     @Transactional
@@ -46,6 +44,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         PaymentCardEntity card = paymentCardMapper.toEntity(request);
         card.setUser(user);
         PaymentCardEntity savedCard = paymentCardRepository.save(card);
+        log.info("Payment card created: cardId={}, userId={}", savedCard.getId(), user.getId());
         return paymentCardMapper.toResponse(savedCard);
     }
 
@@ -86,6 +85,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         card.setHolder(request.holder());
         card.setExpirationDate(request.expirationDate());
         PaymentCardEntity updatedCard = paymentCardRepository.save(card);
+        log.info("Payment card updated: cardId={}", updatedCard.getId());
         return paymentCardMapper.toResponse(updatedCard);
     }
 
@@ -97,6 +97,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         card.setActive(active);
         PaymentCardEntity updatedCard = paymentCardRepository.save(card);
+        log.info("Payment card active status changed: cardId={}, active={}", updatedCard.getId(), active);
         return paymentCardMapper.toResponse(updatedCard);
     }
 
@@ -107,5 +108,13 @@ public class PaymentCardServiceImpl implements PaymentCardService {
         PaymentCardEntity card = paymentCardRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         paymentCardRepository.delete(card);
+        log.info("Payment card deleted: cardId={}", id);
+    }
+
+    @Override
+    public boolean isOwner(Long cardId, Long userId) {
+        return paymentCardRepository.findById(cardId)
+                .map(card -> card.getUser().getId().equals(userId))
+                .orElse(false);
     }
 }
