@@ -22,11 +22,10 @@ public class CacheConfig {
     }
 
     @Bean
-    public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(RedisCacheConfiguration cacheConfiguration) {
+    public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer(
+            RedisCacheConfiguration cacheConfiguration) {
         return (builder) -> builder
-                .withCacheConfiguration("users",
-                        cacheConfiguration.entryTtl(Duration.ofMinutes(10)))
-                .withCacheConfiguration("payment_cards",
-                        cacheConfiguration.entryTtl(Duration.ofMinutes(10)));
+                .withCacheConfiguration("users", cacheConfiguration.entryTtl(Duration.ofMinutes(10)))
+                .withCacheConfiguration("payment_cards", cacheConfiguration.entryTtl(Duration.ofMinutes(10)));
     }
 }
