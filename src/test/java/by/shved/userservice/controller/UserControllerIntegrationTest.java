@@ -1,85 +1,27 @@
 package by.shved.userservice.controller;
 
 import by.shved.userservice.repository.UserRepository;
-import com.redis.testcontainers.RedisContainer;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
-import tools.jackson.databind.ObjectMapper;
-
-import javax.crypto.SecretKey;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@Testcontainers
-@SpringBootTest
-@AutoConfigureMockMvc
-class UserControllerIntegrationTest {
-    @Autowired
-    private MockMvc mockMvc;
+class UserControllerIntegrationTest extends AbstractIntegrationTest{
     @Autowired
     private UserRepository userRepository;
-    @Autowired
-    private ObjectMapper objectMapper;
-    @Value("${security.jwt.secret}")
-    private String jwtSecret;
-
-    private String adminToken;
-
-    @Container
-    @ServiceConnection
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
-    @Container
-    @ServiceConnection
-    static final RedisContainer redis = new RedisContainer(DockerImageName.parse("redis:7-alpine"));
-
-//    @DynamicPropertySource
-//    static void configureProperties(DynamicPropertyRegistry registry) {
-//        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-//        registry.add("spring.datasource.username", postgres::getUsername);
-//        registry.add("spring.datasource.password", postgres::getPassword);
-//    }
-
-    @BeforeEach
-    void setUp() {
-        adminToken = createAccessToken(1L, "ROLE_ADMIN");
-    }
 
     @Test
     void create_whenRequestIsValid_returnsCreatedUser() throws Exception {
-        String email = "ivan" + UUID.randomUUID() + "@example.com";
-        String request = """
-                {
-                    "name": "Ivan",
-                    "surname": "Ivanov",
-                    "birthDate": "1999-09-29",
-                    "email": "%s"
-                }
-                """.formatted(email);
-
-        mockMvc.perform(post("/api/users")
+        String email = uniqueEmail();
+        mockMvc.perform(post(USERS_URL)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(userRequest("Ivan", "Ivanov", email)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.name").value("Ivan"))
@@ -89,41 +31,30 @@ class UserControllerIntegrationTest {
         assertTrue(userRepository.existsByEmail(email));
     }
 
-    @Test
-    void create_whenNameIsBlank_returnsBadRequest() throws Exception {
-        String request = """
-                {
-                    "name": "",
-                    "surname": "Ivanov",
-                    "birthDate": "1999-09-29",
-                    "email": "ivan@example.com"
-                }
-                """;
-
-        mockMvc.perform(post("/api/users")
+    @ParameterizedTest
+    @CsvSource({
+            "'', Ivanov",
+            "'   ', Ivanov",
+            "Ivan, ''",
+            "Ivan, '   '"
+    })
+    void create_whenNameOrSurnameIsBlank_returnsBadRequest(String name, String surname) throws Exception {
+        mockMvc.perform(post(USERS_URL)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(userRequest(name, surname, uniqueEmail())))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void create_whenEmailAlreadyExists_returnsConflict() throws Exception {
-        String email = "duplicate-" + UUID.randomUUID() + "@example.com";
+        String email = uniqueEmail();
         createUser("Ivan", "Ivanov", email);
-        String request = """
-            {
-                "name": "Petr",
-                "surname": "Petrov",
-                "birthDate": "1999-09-29",
-                "email": "%s"
-            }
-            """.formatted(email);
 
-        mockMvc.perform(post("/api/users")
+        mockMvc.perform(post(USERS_URL)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(userRequest("Petr", "Petrov", email)))
                 .andExpect(status().isConflict());
     }
 
@@ -133,68 +64,46 @@ class UserControllerIntegrationTest {
             "ROLE_USER, 403"
     })
     void create_checksAccessByRole(String role, int expectedStatus) throws Exception {
-        String token = createAccessToken(1L, role);
-        String email = "test" + UUID.randomUUID() + "@example.com";
-        String request = """
-            {
-                "name": "Ivan",
-                "surname": "Ivanov",
-                "birthDate": "1999-09-29",
-                "email": "%s"
-            }
-            """.formatted(email);
+        String token = createAccessToken(adminProperties.userId(), role);
 
-        mockMvc.perform(post("/api/users")
+        mockMvc.perform(post(USERS_URL)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(userRequest("Ivan", "Ivanov", uniqueEmail())))
                 .andExpect(status().is(expectedStatus));
     }
 
     @Test
-    void getById_whenUserExists_returnsUser() throws Exception {
-        long id = createUser();
+    void create_whenInternalSecretIsValid_returnsCreatedUser() throws Exception {
+        mockMvc.perform(post(USERS_URL)
+                        .header("X-Internal-Secret", internalSecret)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(userRequest("Ivan", "Ivanov", uniqueEmail())))
+                .andExpect(status().isCreated());
+    }
 
-        mockMvc.perform(get("/api/users/{id}", id)
+    @Test
+    void getById_whenUserExists_returnsUser() throws Exception {
+        long userId = createUser();
+
+        mockMvc.perform(get(USERS_URL + "/{id}", userId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.name").value("Ivan"))
                 .andExpect(jsonPath("$.surname").value("Ivanov"));
     }
 
     @Test
     void getById_whenUserDoesNotExist_returnsNotFound() throws Exception {
-        mockMvc.perform(get("/api/users/{id}", Long.MAX_VALUE)
+        mockMvc.perform(get(USERS_URL + "/{id}", Long.MAX_VALUE)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNotFound());
     }
 
-    @Test
-    void getById_whenUserRequestsOwnProfile_returnsOk() throws Exception {
-        long id = createUser();
-        String token = createAccessToken(id, "ROLE_USER");
-
-        mockMvc.perform(get("/api/users/{id}", id)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(id));
-    }
-
-    @Test
-    void getById_whenUserRequestsAnotherProfile_returnsForbidden() throws Exception {
-        long firstUserId = createUser();
-        long secondUserId = createUser();
-        String token = createAccessToken(firstUserId, "ROLE_USER");
-
-        mockMvc.perform(get("/api/users/{id}", secondUserId)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isForbidden());
-    }
-
     @ParameterizedTest
     @CsvSource({
-            "ROLE_ADMIN, true, 200",
+            "ROLE_ADMIN, false, 200",
             "ROLE_USER, true, 200",
             "ROLE_USER, false, 403"
     })
@@ -203,26 +112,27 @@ class UserControllerIntegrationTest {
         long targetId = ownProfile ? userId : createUser();
         String token = createAccessToken(userId, role);
 
-        mockMvc.perform(get("/api/users/{id}", targetId)
+        mockMvc.perform(get(USERS_URL + "/{id}", targetId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().is(expectedStatus));
     }
 
-    @Test
-    void getById_whenTokenIsMissing_returnsUnauthorized() throws Exception {
-        long id = createUser();
+    @ParameterizedTest
+    @CsvSource({
+            "missing, 401",
+            "invalid, 401"
+    })
+    void getById_checksAuthentication(String tokenType, int expectedStatus) throws Exception {
+        long userId = createUser();
 
-        mockMvc.perform(get("/api/users/{id}", id))
-                .andExpect(status().isUnauthorized());
-    }
+        var request = get(USERS_URL + "/{id}", userId);
 
-    @Test
-    void getById_whenTokenIsInvalid_returnsUnauthorized() throws Exception {
-        long id = createUser();
+        if ("invalid".equals(tokenType)) {
+            request.header("Authorization", "Bearer invalid-token");
+        }
 
-        mockMvc.perform(get("/api/users/{id}", id)
-                        .header("Authorization", "Bearer invalid-token"))
-                .andExpect(status().isUnauthorized());
+        mockMvc.perform(request)
+                .andExpect(status().is(expectedStatus));
     }
 
     @Test
@@ -230,7 +140,7 @@ class UserControllerIntegrationTest {
         createUser("Mikhail", "Abramovich");
         createUser("Stanislav", "Kovalev");
 
-        mockMvc.perform(get("/api/users")
+        mockMvc.perform(get(USERS_URL)
                         .header("Authorization", "Bearer " + adminToken)
                         .param("name", "Mikhail")
                         .param("page", "0")
@@ -246,7 +156,7 @@ class UserControllerIntegrationTest {
         createUser("Vladislav", "Chernov");
         createUser("Artem", "Zhuravlev");
 
-        mockMvc.perform(get("/api/users")
+        mockMvc.perform(get(USERS_URL)
                         .header("Authorization", "Bearer " + adminToken)
                         .param("surname", "Zhuravlev")
                         .param("page", "0")
@@ -258,12 +168,12 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void getAll_whenNameAndSurnameAreProvided_filtersUsersByBothFields() throws Exception {
+    void getAll_whenNameAndSurnameAreProvided_filtersByBothFields() throws Exception {
         createUser("Igor", "Vernik");
         createUser("Igor", "Sidorov");
         createUser("Lesha", "Vernik");
 
-        mockMvc.perform(get("/api/users")
+        mockMvc.perform(get(USERS_URL)
                         .header("Authorization", "Bearer " + adminToken)
                         .param("name", "Igor")
                         .param("surname", "Vernik")
@@ -281,9 +191,9 @@ class UserControllerIntegrationTest {
             "ROLE_USER, 403"
     })
     void getAll_checksAccessByRole(String role, int expectedStatus) throws Exception {
-        String token = createAccessToken(1L, role);
+        String token = createAccessToken(adminProperties.userId(), role);
 
-        mockMvc.perform(get("/api/users")
+        mockMvc.perform(get(USERS_URL)
                         .header("Authorization", "Bearer " + token)
                         .param("page", "0")
                         .param("size", "10"))
@@ -291,35 +201,60 @@ class UserControllerIntegrationTest {
     }
 
     @Test
-    void getAll_whenAuthorizationSchemeIsInvalid_returnsUnauthorized() throws Exception {
-        mockMvc.perform(get("/api/users")
-                        .header("Authorization", "Basic abc123"))
-                .andExpect(status().isUnauthorized());
+    void isUserActive_whenUserIsActive_returnsTrue() throws Exception {
+        long userId = createUser();
+
+        mockMvc.perform(get(USERS_URL + "/{id}/active", userId)
+                        .header("X-Internal-Secret", internalSecret))
+                .andExpect(status().isOk())
+                .andExpect(content().string("true"));
+    }
+
+    @Test
+    void isUserActive_whenUserIsInactive_returnsFalse() throws Exception {
+        long userId = createUser();
+
+        mockMvc.perform(patch(USERS_URL + "/{id}/active", userId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("active", "false"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get(USERS_URL + "/{id}/active", userId)
+                        .header("X-Internal-Secret", internalSecret))
+                .andExpect(status().isOk())
+                .andExpect(content().string("false"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ROLE_ADMIN",
+            "ROLE_USER"
+    })
+    void isUserActive_rejectsJwtAuthentication(String role) throws Exception {
+        long userId = createUser();
+        String token = createAccessToken(userId, role);
+
+        mockMvc.perform(get(USERS_URL + "/{id}/active", userId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void update_whenUserExists_updatesUser() throws Exception {
-        long id = createUser();
-        String email = "updated" + UUID.randomUUID() + "@example.com";
-        String request = """
-                {
-                    "name": "Petr",
-                    "surname": "Petrov",
-                    "birthDate": "2000-05-15",
-                    "email": "%s"
-                }
-                """.formatted(email);
+        long userId = createUser();
+        String email = uniqueEmail();
 
-        mockMvc.perform(put("/api/users/{id}", id)
+        mockMvc.perform(put(USERS_URL + "/{id}", userId)
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(id))
+                        .content(userRequest("Petr", "Petrov", email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.name").value("Petr"))
                 .andExpect(jsonPath("$.surname").value("Petrov"))
                 .andExpect(jsonPath("$.email").value(email));
 
-        var updatedUser = userRepository.findById(id).orElseThrow();
+        var updatedUser = userRepository.findById(userId).orElseThrow();
         assertEquals("Petr", updatedUser.getName());
         assertEquals("Petrov", updatedUser.getSurname());
         assertEquals(email, updatedUser.getEmail());
@@ -327,7 +262,7 @@ class UserControllerIntegrationTest {
 
     @ParameterizedTest
     @CsvSource({
-            "ROLE_ADMIN, true, 200",
+            "ROLE_ADMIN, false, 200",
             "ROLE_USER, true, 200",
             "ROLE_USER, false, 403"
     })
@@ -335,32 +270,40 @@ class UserControllerIntegrationTest {
         long userId = createUser();
         long targetId = ownProfile ? userId : createUser();
         String token = createAccessToken(userId, role);
-        String email = "updated" + UUID.randomUUID() + "@example.com";
-        String request = """
-            {
-                "name": "Petr",
-                "surname": "Petrov",
-                "birthDate": "2000-05-15",
-                "email": "%s"
-            }
-            """.formatted(email);
 
-        mockMvc.perform(put("/api/users/{id}", targetId)
+        mockMvc.perform(put(USERS_URL + "/{id}", targetId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(userRequest("Petr", "Petrov", uniqueEmail())))
                 .andExpect(status().is(expectedStatus));
     }
 
     @Test
-    void setActive_whenUserExists_deactivatesUser() throws Exception {
-        long id = createUser();
+    void update_whenUserIsInactive_returnsForbidden() throws Exception {
+        long userId = createUser();
+        String token = createAccessToken(userId, "ROLE_USER");
 
-        mockMvc.perform(patch("/api/users/{id}/active", id)
+        mockMvc.perform(patch(USERS_URL + "/{id}/active", userId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .param("active", "false"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put(USERS_URL + "/{id}", userId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(userRequest("Petr", "Petrov", uniqueEmail())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void setActive_whenUserExists_deactivatesUser() throws Exception {
+        long userId = createUser();
+
+        mockMvc.perform(patch(USERS_URL + "/{id}/active", userId)
                         .header("Authorization", "Bearer " + adminToken)
                         .param("active", "false"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.active").value(false));
     }
 
@@ -370,10 +313,10 @@ class UserControllerIntegrationTest {
             "ROLE_USER, 403"
     })
     void setActive_checksAccessByRole(String role, int expectedStatus) throws Exception {
-        long id = createUser();
-        String token = createAccessToken(id, role);
+        long userId = createUser();
+        String token = createAccessToken(userId, role);
 
-        mockMvc.perform(patch("/api/users/{id}/active", id)
+        mockMvc.perform(patch(USERS_URL + "/{id}/active", userId)
                         .header("Authorization", "Bearer " + token)
                         .param("active", "false"))
                 .andExpect(status().is(expectedStatus));
@@ -381,13 +324,13 @@ class UserControllerIntegrationTest {
 
     @Test
     void deleteById_whenUserExists_deletesUser() throws Exception {
-        long id = createUser();
+        long userId = createUser();
 
-        mockMvc.perform(delete("/api/users/{id}", id)
+        mockMvc.perform(delete(USERS_URL + "/{id}", userId)
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
-        assertFalse(userRepository.existsById(id));
+        assertFalse(userRepository.existsById(userId));
     }
 
     @ParameterizedTest
@@ -396,84 +339,22 @@ class UserControllerIntegrationTest {
             "ROLE_USER, 403"
     })
     void deleteById_checksAccessByRole(String role, int expectedStatus) throws Exception {
-        long id = createUser();
-        String token = createAccessToken(id, role);
+        long userId = createUser();
+        String token = createAccessToken(userId, role);
 
-        mockMvc.perform(delete("/api/users/{id}", id)
+        mockMvc.perform(delete(USERS_URL + "/{id}", userId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().is(expectedStatus));
     }
 
-    private long createUser() throws Exception {
-        String email = "user" + UUID.randomUUID() + "@example.com";
-        String request = """
-                {
-                    "name": "Ivan",
-                    "surname": "Ivanov",
-                    "birthDate": "1999-09-29",
-                    "email": "%s"
-                }
-                """.formatted(email);
-        String response = mockMvc.perform(post("/api/users")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(response).get("id").asLong();
-    }
+    @Test
+    void deleteById_whenInternalSecretIsValid_deletesUser() throws Exception {
+        long userId = createUser();
 
-    private long createUser(String name, String surname) throws Exception {
-        String email = "user" + UUID.randomUUID() + "@example.com";
-        String request = """
-            {
-                "name": "%s",
-                "surname": "%s",
-                "birthDate": "1999-09-29",
-                "email": "%s"
-            }
-            """.formatted(name, surname, email);
-        String response = mockMvc.perform(post("/api/users")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(response).get("id").asLong();
-    }
+        mockMvc.perform(delete(USERS_URL + "/{id}", userId)
+                        .header("X-Internal-Secret", internalSecret))
+                .andExpect(status().isNoContent());
 
-    private long createUser(String name, String surname, String email) throws Exception {
-        String request = """
-            {
-                "name": "%s",
-                "surname": "%s",
-                "birthDate": "1999-09-29",
-                "email": "%s"
-            }
-            """.formatted(name, surname, email);
-        String response = mockMvc.perform(post("/api/users")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        return objectMapper.readTree(response).get("id").asLong();
-    }
-
-    private String createAccessToken(Long userId, String role) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
-
-        return Jwts.builder()
-                .subject(String.valueOf(userId))
-                .claim("role", role)
-                .claim("tokenType", "ACCESS")
-                .signWith(key)
-                .compact();
+        assertFalse(userRepository.existsById(userId));
     }
 }

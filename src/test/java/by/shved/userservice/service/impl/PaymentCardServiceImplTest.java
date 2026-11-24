@@ -2,7 +2,6 @@ package by.shved.userservice.service.impl;
 
 import by.shved.userservice.dto.paymentcard.PaymentCardRequest;
 import by.shved.userservice.dto.paymentcard.PaymentCardResponse;
-import by.shved.userservice.dto.paymentcard.PaymentCardUpdateRequest;
 import by.shved.userservice.entity.PaymentCardEntity;
 import by.shved.userservice.entity.UserEntity;
 import by.shved.userservice.exception.BusinessException;
@@ -45,7 +44,7 @@ class PaymentCardServiceImplTest {
     private UserEntity user;
     private PaymentCardEntity card;
     private PaymentCardRequest request;
-    private PaymentCardUpdateRequest updateRequest;
+    private PaymentCardRequest updateRequest;
     private PaymentCardResponse response;
 
     @BeforeEach
@@ -66,18 +65,15 @@ class PaymentCardServiceImplTest {
         card.setActive(true);
 
         request = new PaymentCardRequest(
-                1L,
                 "1234567890123456",
                 "IVAN IVANOV",
                 LocalDate.of(2028, 12, 31)
         );
-
-        updateRequest = new PaymentCardUpdateRequest(
+        updateRequest = new PaymentCardRequest(
                 "9876543210987654",
                 "PETR PETROV",
                 LocalDate.of(2029, 10, 31)
         );
-
         response = new PaymentCardResponse(
                 10L,
                 1L,
@@ -90,13 +86,13 @@ class PaymentCardServiceImplTest {
 
     @Test
     void create_whenUserExists_returnsCard() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findForUpdateById(1L)).thenReturn(Optional.of(user));
         when(paymentCardRepository.countCardsByUserId(1L)).thenReturn(2);
         when(paymentCardMapper.toEntity(request)).thenReturn(card);
         when(paymentCardRepository.save(card)).thenReturn(card);
         when(paymentCardMapper.toResponse(card)).thenReturn(response);
 
-        PaymentCardResponse result = paymentCardService.create(request);
+        PaymentCardResponse result = paymentCardService.create(1L, request);
 
         assertEquals(response, result);
         assertEquals(user, card.getUser());
@@ -105,21 +101,37 @@ class PaymentCardServiceImplTest {
 
     @Test
     void create_whenUserDoesNotExist_throwsException() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.findForUpdateById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> paymentCardService.create(request));
+        assertThrows(ResourceNotFoundException.class, () -> paymentCardService.create(1L, request));
 
         verify(paymentCardRepository, never()).save(any(PaymentCardEntity.class));
     }
 
     @Test
     void create_whenCardLimitReached_throwsException() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findForUpdateById(1L)).thenReturn(Optional.of(user));
         when(paymentCardRepository.countCardsByUserId(1L)).thenReturn(5);
 
-        assertThrows(BusinessException.class, () -> paymentCardService.create(request));
+        assertThrows(BusinessException.class, () -> paymentCardService.create(1L, request));
 
         verify(paymentCardRepository, never()).save(any(PaymentCardEntity.class));
+        verify(paymentCardMapper, never()).toEntity(any(PaymentCardRequest.class));
+    }
+
+    @Test
+    void create_whenUserHasFourCards_returnsCreatedCard() {
+        when(userRepository.findForUpdateById(1L)).thenReturn(Optional.of(user));
+        when(paymentCardRepository.countCardsByUserId(1L)).thenReturn(4);
+        when(paymentCardMapper.toEntity(request)).thenReturn(card);
+        when(paymentCardRepository.save(card)).thenReturn(card);
+        when(paymentCardMapper.toResponse(card)).thenReturn(response);
+
+        PaymentCardResponse result = paymentCardService.create(1L, request);
+
+        assertEquals(response, result);
+        assertEquals(user, card.getUser());
+        verify(paymentCardRepository).save(card);
     }
 
     @Test
@@ -178,6 +190,18 @@ class PaymentCardServiceImplTest {
     }
 
     @Test
+    void getAllByUserId_whenUserHasNoCards_returnsEmptyList() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(paymentCardRepository.findAllByUser_Id(1L)).thenReturn(List.of());
+
+        List<PaymentCardResponse> result = paymentCardService.getAllByUserId(1L);
+
+        assertTrue(result.isEmpty());
+        verify(paymentCardRepository).findAllByUser_Id(1L);
+        verify(paymentCardMapper, never()).toResponse(any(PaymentCardEntity.class));
+    }
+
+    @Test
     void update_whenCardExists_updatesCard() {
         PaymentCardResponse updatedResponse = new PaymentCardResponse(
                 10L,
@@ -207,6 +231,17 @@ class PaymentCardServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> paymentCardService.update(10L, updateRequest));
 
         verify(paymentCardRepository, never()).save(any(PaymentCardEntity.class));
+    }
+
+    @Test
+    void update_whenCardExists_preservesCardOwner() {
+        when(paymentCardRepository.findById(10L)).thenReturn(Optional.of(card));
+        when(paymentCardRepository.save(card)).thenReturn(card);
+        when(paymentCardMapper.toResponse(card)).thenReturn(response);
+
+        paymentCardService.update(10L, updateRequest);
+        assertEquals(user, card.getUser());
+        verify(paymentCardRepository).save(card);
     }
 
     @Test
