@@ -78,7 +78,9 @@ class UserServiceImplTest {
         UserResponse result = userService.create(request);
 
         assertEquals(response, result);
+        verify(userRepository).existsByEmail(user.getEmail());
         verify(userRepository).save(user);
+        verify(userMapper).toResponse(user);
     }
 
     @Test
@@ -101,6 +103,7 @@ class UserServiceImplTest {
 
         assertEquals(response, result);
         verify(userRepository).findById(1L);
+        verify(userMapper).toResponse(user);
     }
 
     @Test
@@ -116,7 +119,10 @@ class UserServiceImplTest {
     void getAll_returnsMappedPage() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<UserEntity> entityPage = new PageImpl<>(List.of(user));
-        when(userRepository.findAll(ArgumentMatchers.<Specification<UserEntity>>any(), eq(pageable))).thenReturn(entityPage);
+        when(userRepository.findAll(
+                ArgumentMatchers.<Specification<UserEntity>>any(),
+                eq(pageable)
+        )).thenReturn(entityPage);
         when(userMapper.toResponse(user)).thenReturn(response);
 
         Page<UserResponse> result = userService.getAll("Ivan", "Ivanov", pageable);
@@ -142,7 +148,8 @@ class UserServiceImplTest {
                 "petr.petrov@example.com",
                 true
         );
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findForUpdateById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmailAndIdNot(updatedRequest.email(), 1L)).thenReturn(false);
         when(userRepository.save(user)).thenReturn(user);
         when(userMapper.toResponse(user)).thenReturn(updatedResponse);
 
@@ -153,16 +160,9 @@ class UserServiceImplTest {
         assertEquals(updatedRequest.surname(), user.getSurname());
         assertEquals(updatedRequest.birthDate(), user.getBirthDate());
         assertEquals(updatedRequest.email(), user.getEmail());
+        verify(userRepository).findForUpdateById(1L);
+        verify(userRepository).existsByEmailAndIdNot(updatedRequest.email(), 1L);
         verify(userRepository).save(user);
-    }
-
-    @Test
-    void update_whenUserDoesNotExist_throwsException() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> userService.update(1L, request));
-
-        verify(userRepository, never()).save(any(UserEntity.class));
     }
 
     @Test
@@ -184,13 +184,17 @@ class UserServiceImplTest {
         assertFalse(user.isActive());
         assertEquals(inactiveResponse, result);
         verify(userRepository).save(user);
+        verify(userMapper).toResponse(user);
     }
 
     @Test
     void setActive_whenUserDoesNotExist_throwsException() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> userService.setActive(1L, false));
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userService.setActive(1L, false)
+        );
 
         verify(userRepository, never()).save(any(UserEntity.class));
     }
@@ -211,6 +215,31 @@ class UserServiceImplTest {
         assertThrows(ResourceNotFoundException.class, () -> userService.deleteById(1L));
 
         verify(userRepository, never()).delete(any(UserEntity.class));
+    }
+
+    @Test
+    void isActive_whenUserIsActive_returnsTrue() {
+        when(userRepository.findActiveById(1L)).thenReturn(Optional.of(true));
+
+        assertTrue(userService.isActive(1L));
+        verify(userRepository).findActiveById(1L);
+    }
+
+    @Test
+    void isActive_whenUserIsInactive_returnsFalse() {
+        when(userRepository.findActiveById(1L)).thenReturn(Optional.of(false));
+
+        assertFalse(userService.isActive(1L));
+        verify(userRepository).findActiveById(1L);
+    }
+
+    @Test
+    void isActive_whenUserDoesNotExist_throwsException() {
+        when(userRepository.findActiveById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.isActive(1L));
+
+        verify(userRepository).findActiveById(1L);
     }
 
     @AfterEach

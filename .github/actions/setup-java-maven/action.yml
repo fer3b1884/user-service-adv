@@ -1,5 +1,5 @@
 name: Setup Java and Maven
-description: Configure Java 25 and prepare Maven Wrapper
+description: Configure Java 25 and Maven
 runs:
   using: composite
   steps:
@@ -9,6 +9,3 @@ runs:
         distribution: temurin
         java-version: '25'
         cache: maven
-    - name: Prepare Maven Wrapper
-      shell: bash
-      run: chmod +x mvnw

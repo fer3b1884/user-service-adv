@@ -9,7 +9,6 @@ import by.shved.userservice.mapper.UserMapper;
 import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.UserSpecification;
 import by.shved.userservice.service.UserService;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -19,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -53,15 +53,19 @@ public class UserServiceImpl implements UserService {
         Specification<UserEntity> specification = Specification
                 .where(UserSpecification.hasName(name))
                 .and(UserSpecification.hasSurname(surname));
-        return userRepository.findAll(specification, pageable).map(userMapper::toResponse);
+        return userRepository.findAll(specification, pageable)
+                .map(userMapper::toResponse);
     }
 
     @CacheEvict(cacheNames = "users", key = "#id")
     @Override
     @Transactional
     public UserResponse update(Long id, UserRequest request) {
-        UserEntity user = userRepository.findById(id)
+        UserEntity user = userRepository.findForUpdateById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        if (userRepository.existsByEmailAndIdNot(request.email(), id)) {
+            throw new DuplicateResourceException("User with this email already exists");
+        }
         user.setName(request.name());
         user.setSurname(request.surname());
         user.setBirthDate(request.birthDate());
@@ -94,5 +98,11 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         log.info("User deleted: userId={}", id);
         userRepository.delete(user);
+    }
+
+    @Override
+    public boolean isActive(Long id) {
+        return userRepository.findActiveById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
     }
 }

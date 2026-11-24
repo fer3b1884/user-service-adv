@@ -2,7 +2,6 @@ package by.shved.userservice.service.impl;
 
 import by.shved.userservice.dto.paymentcard.PaymentCardRequest;
 import by.shved.userservice.dto.paymentcard.PaymentCardResponse;
-import by.shved.userservice.dto.paymentcard.PaymentCardUpdateRequest;
 import by.shved.userservice.entity.PaymentCardEntity;
 import by.shved.userservice.entity.UserEntity;
 import by.shved.userservice.exception.BusinessException;
@@ -12,7 +11,6 @@ import by.shved.userservice.repository.PaymentCardRepository;
 import by.shved.userservice.repository.UserRepository;
 import by.shved.userservice.repository.specification.PaymentCardSpecification;
 import by.shved.userservice.service.PaymentCardService;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -21,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -34,9 +33,9 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
     @Override
     @Transactional
-    public PaymentCardResponse create(PaymentCardRequest request) {
-        UserEntity user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.userId()));
+    public PaymentCardResponse create(Long userId, PaymentCardRequest request) {
+        UserEntity user = userRepository.findForUpdateById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         int cardCount = paymentCardRepository.countCardsByUserId(user.getId());
         if (cardCount >= 5) {
             throw new BusinessException("User cannot have more than 5 payment cards");
@@ -78,7 +77,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     @CacheEvict(cacheNames = "payment_cards", key = "#id")
     @Override
     @Transactional
-    public PaymentCardResponse update(Long id, PaymentCardUpdateRequest request) {
+    public PaymentCardResponse update(Long id, PaymentCardRequest request) {
         PaymentCardEntity card = paymentCardRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         card.setNumber(request.number());
@@ -109,12 +108,5 @@ public class PaymentCardServiceImpl implements PaymentCardService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment card not found with id: " + id));
         paymentCardRepository.delete(card);
         log.info("Payment card deleted: cardId={}", id);
-    }
-
-    @Override
-    public boolean isOwner(Long cardId, Long userId) {
-        return paymentCardRepository.findById(cardId)
-                .map(card -> card.getUser().getId().equals(userId))
-                .orElse(false);
     }
 }

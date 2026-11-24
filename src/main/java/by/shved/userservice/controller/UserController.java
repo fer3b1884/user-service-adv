@@ -43,9 +43,15 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal")
+    @PreAuthorize("hasRole('ADMIN') or (#id == authentication.principal and @userAccess.isActive(#id))")
     public ResponseEntity<UserResponse> update(@PathVariable Long id, @Valid @RequestBody UserRequest request) {
         return ResponseEntity.ok(userService.update(id, request));
+    }
+
+    @GetMapping("/{id}/active")
+    @PreAuthorize("hasAuthority('INTERNAL_SERVICE')")
+    public ResponseEntity<Boolean> isUserActive(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.isActive(id));
     }
 
     @PatchMapping("/{id}/active")
@@ -55,7 +61,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal or hasAuthority('INTERNAL_SERVICE')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('INTERNAL_SERVICE')")
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {
         userService.deleteById(id);
         return ResponseEntity.noContent().build();
