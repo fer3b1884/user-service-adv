@@ -12,4 +12,5 @@ public interface UserService {
     UserResponse update(Long id, UserRequest request);
     UserResponse setActive(Long id, boolean active);
     void deleteById(Long id);
+    boolean isActive(Long id);
 }

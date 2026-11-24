@@ -39,3 +39,11 @@ logs/
 ### Environment variables ###
 .env
 .env.*
+!.env.example
+
+### Maven wrapper ###
+mvnw
+mvnw.cmd
+.mvn/
+
+.DS_Store

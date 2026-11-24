@@ -1,6 +1,5 @@
 package by.shved.userservice.dto.paymentcard;
 
-
 import java.time.LocalDate;
 
 public record PaymentCardResponse (

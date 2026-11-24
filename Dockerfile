@@ -2,15 +2,10 @@ FROM maven:3.9-eclipse-temurin-25 AS build
 
 WORKDIR /app
 
-COPY mvnw .
-COPY .mvn/ .mvn/
 COPY pom.xml .
-
-RUN chmod +x mvnw
-
 COPY src/ src/
 
-RUN ./mvnw clean package -DskipTests
+RUN mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:25-jre
 
@@ -20,6 +15,6 @@ USER spring-boot
 
 WORKDIR /app
 
-COPY --from=build /app/target/user-service-0.0.1-SNAPSHOT.jar /app/application.jar
+COPY --from=build /app/target/user-service-adv-0.0.1-SNAPSHOT.jar /app/application.jar
 
 ENTRYPOINT ["java", "-jar", "./application.jar"]
