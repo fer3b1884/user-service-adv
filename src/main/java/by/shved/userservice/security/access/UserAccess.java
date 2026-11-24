@@ -9,7 +9,10 @@ import org.springframework.stereotype.Component;
 public class UserAccess {
     private final UserRepository userRepository;
 
-    public boolean isActive(Long userId) {
+    public boolean isActive(Object principal) {
+        if (!(principal instanceof Long userId)) {
+            return false;
+        }
         return userRepository.findActiveById(userId).orElse(false);
     }
 }

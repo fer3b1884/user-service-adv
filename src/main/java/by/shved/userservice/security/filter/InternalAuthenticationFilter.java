@@ -27,6 +27,7 @@ import java.util.List;
 public class InternalAuthenticationFilter extends OncePerRequestFilter {
     private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
     private static final String INTERNAL_AUTHORITY = "INTERNAL_SERVICE";
+    private static final String PRINCIPAL_STRING = "api-gateway";
 
     private final InternalSecurityProperties properties;
     private final AuthenticationEntryPoint authenticationEntryPoint;
@@ -44,7 +45,7 @@ public class InternalAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         var authentication = new UsernamePasswordAuthenticationToken(
-                "api-gateway",
+                PRINCIPAL_STRING,
                 null,
                 List.of(new SimpleGrantedAuthority(INTERNAL_AUTHORITY))
         );

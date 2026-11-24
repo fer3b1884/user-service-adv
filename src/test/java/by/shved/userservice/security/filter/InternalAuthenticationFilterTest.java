@@ -11,7 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import static org.junit.jupiter.api.Assertions.*;
 
 class InternalAuthenticationFilterTest extends AbstractSecurityFilterTest {
-    private static final String SECRET = "test-internal-secret";
+    private static final String SECRET = "test-internal-secret-with-length-more-than-32-chars";
     private InternalAuthenticationFilter filter;
 
     @BeforeEach

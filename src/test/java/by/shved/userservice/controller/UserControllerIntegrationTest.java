@@ -4,6 +4,7 @@ import by.shved.userservice.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
@@ -356,5 +357,30 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest{
                 .andExpect(status().isNoContent());
 
         assertFalse(userRepository.existsById(userId));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "GET_ALL",
+            "GET_BY_ID",
+            "UPDATE",
+            "SET_ACTIVE"
+    })
+    void internalService_whenAccessingForbiddenEndpoint_returnsForbidden(String endpoint) throws Exception {
+        long userId = createUser();
+        var request = switch (endpoint) {
+            case "GET_ALL" -> get(USERS_URL);
+            case "GET_BY_ID" -> get(USERS_URL + "/{id}", userId);
+            case "UPDATE" -> put(USERS_URL + "/{id}", userId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(userRequest("Petr", "Petrov", uniqueEmail()));
+            case "SET_ACTIVE" -> patch(USERS_URL + "/{id}/active", userId)
+                    .param("active", "false");
+            default -> throw new IllegalArgumentException("Unsupported endpoint: " + endpoint);
+        };
+
+        mockMvc.perform(request
+                        .header("X-Internal-Secret", internalSecurityProperties.secret()))
+                .andExpect(status().isForbidden());
     }
 }

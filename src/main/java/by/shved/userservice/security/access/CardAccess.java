@@ -9,7 +9,10 @@ import org.springframework.stereotype.Component;
 public class CardAccess {
     private final PaymentCardRepository paymentCardRepository;
 
-    public boolean isOwner(Long cardId, Long userId) {
+    public boolean isOwner(Long cardId, Object principal) {
+        if (cardId == null || !(principal instanceof Long userId)) {
+            return false;
+        }
         return paymentCardRepository.existsByIdAndUser_Id(cardId, userId);
     }
 }

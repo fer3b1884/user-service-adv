@@ -4,6 +4,7 @@ import by.shved.userservice.repository.PaymentCardRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
@@ -441,6 +442,41 @@ class PaymentCardControllerIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(delete(PAYMENT_CARDS_URL + "/{id}", cardId)
                         .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "GET_ALL",
+            "GET_BY_ID",
+            "GET_BY_USER_ID",
+            "CREATE",
+            "UPDATE",
+            "SET_ACTIVE",
+            "DELETE"
+    })
+    void internalService_whenAccessingCardEndpoint_returnsForbidden(String endpoint) throws Exception {
+        long userId = createUser();
+        long cardId = createCard(userId);
+        String cardRequest = cardRequest(uniqueCardNumber(), "IVAN IVANOV");
+        var request = switch (endpoint) {
+            case "GET_ALL" -> get(PAYMENT_CARDS_URL);
+            case "GET_BY_ID" -> get(PAYMENT_CARDS_URL + "/{id}", cardId);
+            case "GET_BY_USER_ID" -> get(PAYMENT_CARDS_URL + "/user/{userId}", userId);
+            case "CREATE" -> post(PAYMENT_CARDS_URL + "/user/{userId}", userId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(cardRequest);
+            case "UPDATE" -> put(PAYMENT_CARDS_URL + "/{id}", cardId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(cardRequest);
+            case "SET_ACTIVE" -> patch(PAYMENT_CARDS_URL + "/{id}/active", cardId)
+                    .param("active", "false");
+            case "DELETE" -> delete(PAYMENT_CARDS_URL + "/{id}", cardId);
+            default -> throw new IllegalArgumentException("Unsupported endpoint: " + endpoint);
+        };
+
+        mockMvc.perform(request
+                        .header("X-Internal-Secret", internalSecurityProperties.secret()))
                 .andExpect(status().isForbidden());
     }
 }
